@@ -183,11 +183,21 @@ router.post('/opey/stream', async (req: Request, res: Response) => {
       console.error('Stream error:', error)
     })
 
-    // Add a timeout to prevent hanging
-    const timeout = setTimeout(() => {
-      console.warn('Stream timeout reached')
+    // Add an inactivity timeout to prevent a hung stream from staying open forever.
+    // Reset on every chunk so an active, long-running response (e.g. multi-step tool
+    // calling) isn't destroyed mid-stream just for taking longer than one timeout window.
+    const INACTIVITY_TIMEOUT_MS = 30000
+    let timeout = setTimeout(onTimeout, INACTIVITY_TIMEOUT_MS)
+
+    function onTimeout() {
+      console.warn('Stream inactivity timeout reached')
       nodeStream.destroy()
-    }, 30000)
+    }
+
+    nodeStream.on('data', () => {
+      clearTimeout(timeout)
+      timeout = setTimeout(onTimeout, INACTIVITY_TIMEOUT_MS)
+    })
 
     // Clear the timeout when stream ends
     nodeStream.on('end', () => clearTimeout(timeout))

@@ -29,6 +29,7 @@
 import { reactive, ref, onBeforeMount, onMounted, inject, computed } from 'vue'
 import SearchNav from '../components/GlossarySearchNav.vue'
 import { obpGlossaryKey } from '@/obp/keys';
+import { sanitizeHtml } from '@/utils/sanitize-html';
 
 const allGlossaryItems = ref(inject(obpGlossaryKey)!.glossary_items)
 
@@ -74,7 +75,7 @@ const glossary = computed(() => {
               {{ value.title }}
             </a>
           </span>
-          <div v-html="value.description.html" class="content"></div>
+          <div v-html="sanitizeHtml(value.description.html)" class="content"></div>
         </div>
       </el-scrollbar>
     </el-main>
