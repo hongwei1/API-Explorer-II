@@ -57,7 +57,7 @@ const obpExplorerHome = process.env.VITE_OBP_API_EXPLORER_HOST
  *
  * Any unset/unrecognised value falls back to "public".
  */
-function getLogoutMode(): 'public' | 'internal' {
+export function getLogoutMode(): 'public' | 'internal' {
   const mode = process.env.VITE_OBP_LOGOUT_MODE?.trim().toLowerCase()
   if (mode === 'internal') {
     return 'internal'
@@ -76,7 +76,7 @@ function getLogoutMode(): 'public' | 'internal' {
  * be built (no provider, no end_session_endpoint, or no id_token), in which case
  * the caller should fall back to a local-only logout.
  */
-function buildEndSessionUrl(
+export function buildEndSessionUrl(
   provider: string | undefined,
   idToken: string | undefined,
   req: Request
