@@ -231,22 +231,28 @@ export const useChat = defineStore('chat', {
             this.status = 'streaming'
             const reader = stream.getReader();
             let decoder = new TextDecoder();
-            
+            // Holds any partial line left over from the previous chunk: chunk boundaries
+            // don't align with SSE line boundaries, so a "data: {...}" frame can split
+            // across two reads.
+            let buffer = '';
+
             try {
                 while (true) {
                     const { done, value } = await reader.read();
-                    
+
                     if (done) {
                         console.log('Stream complete');
                         this.status = 'ready';
                         break;
                     }
-                    
-                    const decodedValue = decoder.decode(value);
-                    console.debug('Received:', decodedValue); //DEBUG
-                    
-                    // Parse the SSE data format
-                    const lines = decodedValue.split('\n');
+
+                    buffer += decoder.decode(value, { stream: true });
+                    console.debug('Received:', buffer); //DEBUG
+
+                    // Parse the SSE data format. Keep the last (possibly incomplete) line
+                    // buffered until the next chunk instead of processing it now.
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() ?? '';
                     for (const line of lines) {
                         if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                             try {
@@ -272,6 +278,9 @@ export const useChat = defineStore('chat', {
                                             throw new Error('Tool call ID not found for approval request');
                                         }
                                         const awaitingApproval = this.getToolCallById(content.tool_call_id)
+                                        if (!awaitingApproval) {
+                                            throw new Error(`Tool call ${content.tool_call_id} not found for approval request`);
+                                        }
                                         awaitingApproval.status = "awaiting_approval"
 
 
