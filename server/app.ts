@@ -120,6 +120,14 @@ console.info(
   `Session maxAge configured: ${sessionMaxAgeSeconds} seconds (${sessionMaxAgeSeconds / 60} minutes)`
 )
 app.use(express.json())
+
+// Fail fast at boot rather than at the first request: express-session doesn't throw
+// when secret is undefined, it just logs a deprecation warning and then rejects every
+// request later with an opaque "secret option required for sessions" error.
+if (!process.env.VITE_OBP_SERVER_SESSION_PASSWORD) {
+  throw new Error('VITE_OBP_SERVER_SESSION_PASSWORD is not set')
+}
+
 let sessionObject = {
   store: redisStore,
   name: 'obp-api-explorer-ii.sid', // CRITICAL: Unique cookie name to prevent conflicts with other apps on localhost
