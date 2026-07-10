@@ -3,6 +3,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import ChatWidget from '../components/ChatWidget.vue'
 import { setActivePinia, createPinia } from 'pinia';
 
+// ChatWidget calls useRoute() to build its login URL; mounting it in isolation
+// (no router installed) made route undefined and crashed every render that
+// reached the login branch. Stub the composable instead of wiring a full router.
+vi.mock('vue-router', () => ({
+    useRoute: () => ({ path: '/', query: {} })
+}))
+
 describe('ChatWidget', () => {
 
     beforeEach(() => {
