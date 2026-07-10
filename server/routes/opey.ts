@@ -43,6 +43,28 @@ const opeyClientService = Container.get(OpeyClientService)
 const obpConsentsService = Container.get(OBPConsentsService)
 
 /**
+ * Destroys `stream` after `timeoutMs` of inactivity, resetting the timer on every
+ * 'data' event so an active, long-running response (e.g. multi-step tool calling)
+ * isn't killed mid-stream just for taking longer than one timeout window. Extracted
+ * as its own function so the timing behavior is unit-testable without driving a
+ * full HTTP request through the route.
+ */
+export function attachInactivityTimeout(stream: Readable, timeoutMs = 30000): void {
+  const onTimeout = () => {
+    console.warn('Stream inactivity timeout reached')
+    stream.destroy()
+  }
+  let timeout = setTimeout(onTimeout, timeoutMs)
+
+  stream.on('data', () => {
+    clearTimeout(timeout)
+    timeout = setTimeout(onTimeout, timeoutMs)
+  })
+  stream.on('end', () => clearTimeout(timeout))
+  stream.on('error', () => clearTimeout(timeout))
+}
+
+/**
  * Helper function to convert web stream to Node.js stream
  */
 function safeFromWeb(webStream: WebReadableStream<any>): Readable {
@@ -183,25 +205,10 @@ router.post('/opey/stream', async (req: Request, res: Response) => {
       console.error('Stream error:', error)
     })
 
-    // Add an inactivity timeout to prevent a hung stream from staying open forever.
-    // Reset on every chunk so an active, long-running response (e.g. multi-step tool
-    // calling) isn't destroyed mid-stream just for taking longer than one timeout window.
-    const INACTIVITY_TIMEOUT_MS = 30000
-    let timeout = setTimeout(onTimeout, INACTIVITY_TIMEOUT_MS)
-
-    function onTimeout() {
-      console.warn('Stream inactivity timeout reached')
-      nodeStream.destroy()
-    }
-
-    nodeStream.on('data', () => {
-      clearTimeout(timeout)
-      timeout = setTimeout(onTimeout, INACTIVITY_TIMEOUT_MS)
-    })
-
-    // Clear the timeout when stream ends
-    nodeStream.on('end', () => clearTimeout(timeout))
-    nodeStream.on('error', () => clearTimeout(timeout))
+    // Prevent a hung stream from staying open forever, without killing an active,
+    // long-running response (e.g. multi-step tool calling) just for taking longer
+    // than one timeout window.
+    attachInactivityTimeout(nodeStream)
   } catch (error) {
     console.error('Error in /opey/stream:', error)
     if (!res.headersSent) {
