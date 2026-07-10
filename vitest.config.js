@@ -31,11 +31,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom', // Simulates a browser environment
+    // Client-side unit tests only. Server unit tests run in a plain Node
+    // environment via vitest.server.config.js (npm run test:server) - they must
+    // not go through the Vue/browser-polyfill pipeline above.
+    include: ['src/test/**/*.test.ts'],
     exclude:[
-      ...configDefaults.exclude, 
+      ...configDefaults.exclude,
       '**/integration/*'
     ],
-    pool: "vmThreads",  
+    pool: "vmThreads",
     deps: {
       inline: ['element-plus'],
     }
