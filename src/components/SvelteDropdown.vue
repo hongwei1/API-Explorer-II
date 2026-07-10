@@ -90,7 +90,11 @@ watch(
   () => [props.items, props.label],
   ([newItems, newLabel]) => {
     if (svelteComponent && containerRef.value) {
-      // Remount with new props
+      // Remount with new props. The 'select' listener added once in onMounted stays
+      // attached to containerRef itself (not to the Svelte-mounted content), and the
+      // Svelte component dispatches 'select' with bubbles: true, so it doesn't need
+      // to be re-added here — doing so would stack a duplicate listener on every
+      // prop change and fire emit('select', ...) multiple times per click.
       unmount(svelteComponent)
       svelteComponent = mount(Dropdown, {
         target: containerRef.value,
@@ -100,12 +104,6 @@ watch(
           hoverColor: props.hoverColor,
           backgroundColor: props.backgroundColor
         }
-      })
-
-      // Re-add event listener
-      containerRef.value.addEventListener('select', (event: Event) => {
-        const customEvent = event as CustomEvent
-        emit('select', customEvent.detail)
       })
     }
   }
