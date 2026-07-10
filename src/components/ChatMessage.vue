@@ -23,6 +23,7 @@ import 'prismjs/themes/prism-okaidia.css';
 
 import { Warning, RefreshRight, Check } from '@element-plus/icons-vue'
 import ToolCall from './ToolCall.vue';
+import { sanitizeHtml } from '@/utils/sanitize-html';
 
 export default {
     props: {
@@ -71,7 +72,7 @@ export default {
                 }
             });
 
-            return markdown.render(content);
+            return sanitizeHtml(markdown.render(content));
         },
     }
 }

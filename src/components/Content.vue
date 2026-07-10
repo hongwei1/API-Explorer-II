@@ -39,6 +39,7 @@ deleteMyAPICollectionEndpoint,
 getCurrentUser
 } from '../obp'
 import { getOperationDetails } from '../obp/resource-docs'
+import { sanitizeHtml } from '@/utils/sanitize-html'
 import { SUMMARY_PAGER_LINKS_COLOR as summaryPagerLinksColorSetting } from '../obp/style-setting'
 import { initializeAPICollections, setTabActive } from './SearchNav.vue'
 
@@ -68,7 +69,10 @@ const setOperationDetails = (id: string, version: string): void => {
   const operation = getOperationDetails(version, id, resourceDocs)
   console.log('Operation details:', operation)
   console.log('Tags from operation:', operation?.tags)
-  description.value = operation?.description
+  // operation.description comes from the OBP resource-docs API (authored by any
+  // entitled user via Dynamic Entities/Endpoints) and is rendered with v-html below,
+  // so it must be sanitized before it reaches the template.
+  description.value = sanitizeHtml(operation?.description || '')
   summary.value = operation?.summary
   tags.value = operation?.tags || []
   console.log('Tags ref value:', tags.value)
