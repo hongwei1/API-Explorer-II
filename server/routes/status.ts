@@ -31,7 +31,7 @@ import { Container } from 'typedi'
 import OBPClientService from '../services/OBPClientService.js'
 import { OAuth2ProviderManager } from '../services/OAuth2ProviderManager.js'
 import { OAuth2ProviderFactory } from '../services/OAuth2ProviderFactory.js'
-import { commitId } from '../app.js'
+import { commitId } from '../commitId.js'
 import {
   RESOURCE_DOCS_API_VERSION,
   MESSAGE_DOCS_API_VERSION,
@@ -91,7 +91,7 @@ const connectors = [
 /**
  * Helper function to check if response contains an error
  */
-function isCodeError(response: any, path: string): boolean {
+export function isCodeError(response: any, path: string): boolean {
   console.log(`Validating ${path} response...`)
   if (!response || Object.keys(response).length === 0) return true
   if (Object.keys(response).includes('code')) {
