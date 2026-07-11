@@ -51,10 +51,8 @@ public_key.pem
 playwright-report/
 .auth/
 test-results/
-__snapshots__/
 
 .vite/deps
-__snapshots__/
 
 # Playwright auth
 src/test/integration/playwright/.auth

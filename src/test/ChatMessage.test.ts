@@ -1,4 +1,9 @@
-
+// @vitest-environment jsdom
+//
+// ChatMessage renders its content through markdown-it + DOMPurify (sanitizeHtml).
+// DOMPurify needs a spec-compliant DOM to behave deterministically; happy-dom
+// (this project's default test env) does not, so the committed snapshot below
+// is generated and compared under jsdom to stay portable across environments.
 import { mount } from '@vue/test-utils';
 import { describe, it, expect } from 'vitest';
 import ChatMessage from '../components/ChatMessage.vue'
