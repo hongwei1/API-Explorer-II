@@ -1,0 +1,38 @@
+name: test
+
+# Runs type checks and the unit test suite on every push and pull request.
+# The suite is self-contained (server tests supply their own env defaults via
+# server/test/setup.ts and mock all I/O), so no Redis / OBP / Opey backend is
+# needed here.
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Server-side type check. The client-side check (npm run type-check /
+      # vue-tsc) is intentionally omitted for now: it fails on a pre-existing
+      # error in the unreferenced dead component src/components/ChatWidgetOld.vue
+      # (a TS type assertion in a <script> block without lang="ts"). Add it here
+      # once that file is fixed or removed.
+      - name: Type check (server)
+        run: npx tsc --project tsconfig.server.json --noEmit
+
+      - name: Run tests
+        run: npm test
