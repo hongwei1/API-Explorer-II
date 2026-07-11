@@ -32,6 +32,7 @@ import { getOperationDetails } from '../obp/resource-docs'
 import { ElNotification, FormInstance } from 'element-plus'
 import { OBP_API_DEFAULT_RESOURCE_DOC_VERSION, get, create, update, discard, createEntitlement, getCurrentUser, getUserEntitlements } from '../obp'
 import { obpResourceDocsKey } from '@/obp/keys'
+import { parseDoubleEncodedJson } from '@/utils/parse-double-encoded-json'
 import JsonEditorVue from 'json-editor-vue'
 import { Mode } from 'vanilla-jsoneditor'
 import 'vanilla-jsoneditor/themes/jse-theme-dark.css'
@@ -243,49 +244,6 @@ const submit = async (form: FormInstance, fn: () => void) => {
   if (!form) return
   fn(form).then(() => {})
 }
-// Helper function to recursively parse double-encoded JSON strings
-const parseDoubleEncodedJson = (obj: any): any => {
-  if (obj === null || obj === undefined) {
-    return obj
-  }
-
-  // If it's a string, try to parse it as JSON
-  if (typeof obj === 'string') {
-    // Skip strings that can't be JSON (must start with { [ or ")
-    const trimmed = obj.trimStart()
-    if (trimmed.length === 0 || (trimmed[0] !== '{' && trimmed[0] !== '[' && trimmed[0] !== '"')) {
-      return obj
-    }
-    try {
-      const parsed = JSON.parse(obj)
-      // Recursively parse the result in case it's triple-encoded or more
-      return parseDoubleEncodedJson(parsed)
-    } catch (e) {
-      // If parsing fails, return the original string
-      return obj
-    }
-  }
-
-  // If it's an array, recursively parse each element
-  if (Array.isArray(obj)) {
-    return obj.map(item => parseDoubleEncodedJson(item))
-  }
-
-  // If it's an object, recursively parse each property
-  if (typeof obj === 'object') {
-    const result = {}
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        result[key] = parseDoubleEncodedJson(obj[key])
-      }
-    }
-    return result
-  }
-
-  // For other types (numbers, booleans, etc.), return as-is
-  return obj
-}
-
 const highlightCode = (json) => {
   if (!json) {
     successResponseBody.value = ''
