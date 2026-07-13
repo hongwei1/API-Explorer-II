@@ -8,6 +8,10 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    // @vue/tsconfig's base config sets preserveValueImports/importsNotUsedAsValues,
+    // which vue-tsc 2.2.12's checker treats as deprecated (TS5101) and errors on -
+    // this silences that diagnostic without changing any actual type checking.
+    "ignoreDeprecations": "5.0"
   }
 }
