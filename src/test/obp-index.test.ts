@@ -29,7 +29,7 @@ vi.mock('superagent', () => ({
 const { get, create, isServerUp } = await import('@/obp/index')
 
 describe('obp/index get()', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('returns the response body on success', async () => {
     mockGet.mockReturnValue(makeRequest({ body: { banks: [] } }))
@@ -60,7 +60,7 @@ describe('obp/index get()', () => {
 })
 
 describe('obp/index create()', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('sends a parsed JSON body when given a valid JSON string', async () => {
     const req = makeRequest({ body: { ok: true } })
@@ -92,7 +92,7 @@ describe('obp/index create()', () => {
 })
 
 describe('isServerUp', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('is up when at least one status value is truthy', async () => {
     mockGet.mockReturnValue(makeRequest({ body: { obp: true, opey: false } }))

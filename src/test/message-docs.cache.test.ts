@@ -39,7 +39,7 @@ function mockColdBackend() {
 }
 
 describe('message-docs cache() - warm vs cold', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('warm hit: posts exactly one update-message-docs and fetches nothing', async () => {
     const worker = makeWorker()
@@ -78,7 +78,7 @@ describe('message-docs cache() - warm vs cold', () => {
 })
 
 describe('message-docs cacheJsonSchema() - warm vs cold', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('warm hit: posts exactly one update-message-docs-json-schema', async () => {
     const worker = makeWorker()

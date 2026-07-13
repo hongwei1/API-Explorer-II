@@ -33,7 +33,7 @@ const warmDocs = {
 }
 
 describe('resource-docs cache() - warm path (cache hit)', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('posts exactly one background-refresh message and returns the cached docs', async () => {
     const worker = makeWorker()
@@ -50,7 +50,7 @@ describe('resource-docs cache() - warm path (cache hit)', () => {
 })
 
 describe('resource-docs cache() - cold path (cache miss)', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('rebuilds the cache WITHOUT posting the refresh message', async () => {
     const worker = makeWorker()
