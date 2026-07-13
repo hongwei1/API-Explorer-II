@@ -1,9 +1,13 @@
-import app, { instance } from '../app.js';
+// This is a live-stack integration test, not a unit test: it imports the real
+// Express app (server/app.ts), which connects to Redis and requires a real
+// OBP + Opey backend to be reachable. It never belongs in the unit glob
+// (vitest.server.config.js excludes server/test/integration/**) - importing
+// app.ts in a unit run is what caused the ESM/punycode load failure this file
+// used to trigger. Run it manually against a live stack; not wired into CI.
+import app, { instance } from '../../app.js';
 import request from 'supertest';
-import http from 'node:http';
-import { UserInput } from '../schema/OpeySchema.js';
+import { UserInput } from '../../schema/OpeySchema.js';
 import {v4 as uuidv4} from 'uuid';
-import { agent } from "superagent";
 import fetch from 'node-fetch';
 
 

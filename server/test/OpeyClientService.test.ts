@@ -65,11 +65,21 @@ describe('stream', async () => {
             },
         });
 
-        global.fetch = vi.fn(() => {
+        // stream() first establishes an Opey session via POST /create-session and
+        // forwards its cookie on /stream, so the fetch mock has to answer both
+        // calls: the handshake with a Set-Cookie header, everything else with the
+        // streaming response.
+        global.fetch = vi.fn((url: any) => {
+            if (String(url).includes('/create-session')) {
+                return Promise.resolve(new Response(JSON.stringify({}), {
+                    status: 200,
+                    headers: { 'set-cookie': 'session=test-session-cookie; Path=/' },
+                }))
+            }
             return Promise.resolve(new Response(mockStream, {
                 status: 200,
             }))
-        })
+        }) as any
 
         opeyConfig = {
             authConfig: {
@@ -83,7 +93,7 @@ describe('stream', async () => {
 
     })
 
-    it('should add the obpConsent jwt to the Authorization header', async () => {
+    it('should add the obpConsent jwt and the session cookie to the stream request', async () => {
 
         const user_input: UserInput = {
             message: 'test message',
@@ -92,30 +102,17 @@ describe('stream', async () => {
 
         await opeyClientService.stream(user_input, opeyConfig);
 
-        expect(global.fetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+        expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/stream'), expect.objectContaining({
             method: 'POST',
             headers: expect.objectContaining({
                 "Consent-JWT": `${opeyConfig.authConfig?.obpConsent.jwt}`,
+                "Cookie": 'session=test-session-cookie',
             }),
         }))
 
     })
 
     it('should return a ReadableStream if Opey returns 200', async () => {
-        
-        // Mock the stream response
-        const mockStream = new ReadableStream<Uint8Array>({
-            start(controller) {
-                controller.enqueue(new TextEncoder().encode(`data: {"type":"token","content":"test"}\n`));
-                controller.close();
-            },
-        });
-
-        global.fetch = vi.fn(() => {
-            return Promise.resolve(new Response(mockStream, {
-                status: 200,
-            }))
-        })
 
         const user_input: UserInput = {
             message: 'test message',
@@ -123,7 +120,7 @@ describe('stream', async () => {
         }
 
         const response = await opeyClientService.stream(user_input, opeyConfig);
-        
+
 
         expect(response).toBeInstanceOf(ReadableStream);
     });
@@ -215,9 +212,9 @@ describe('getOpeyConfig', async () => {
             jwt: 'test-jwt-token',
         });
 
-        // Verify original config fields remain
-        expect(resultConfig)
-        expect(resultConfig.baseUri).toBe('http://localhost:5000');
+        // Verify original config fields remain. The default baseUri comes from
+        // VITE_CHATBOT_URL (set in server/test/setup.ts), not a hardcoded host.
+        expect(resultConfig.baseUri).toBe(process.env.VITE_CHATBOT_URL);
         expect(resultConfig.paths).toBeDefined();
     });
 

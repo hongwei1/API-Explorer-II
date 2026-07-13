@@ -348,6 +348,58 @@ describe('Chat Store _proccessOpeyStream', () => {
     })
 })
 
+describe('Chat Store _processOpeyStream cross-chunk buffering', () => {
+    let chatStore: ReturnType<typeof useChat>
+
+    beforeEach(() => {
+        setActivePinia(createPinia())
+        chatStore = useChat()
+    })
+
+    it('reassembles a data: frame whose JSON body is split across two chunks', async () => {
+        // Network chunk boundaries don't align with SSE line boundaries, so a
+        // single "data: {...}" frame can arrive split across two reader.read()
+        // calls. Split the frame mid-object to simulate that.
+        const fullLine = `data: {"type":"token","content":"hello world"}\n`
+        const splitPoint = fullLine.indexOf('"hello') + 3 // cut mid-JSON-string
+
+        const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(new TextEncoder().encode(fullLine.slice(0, splitPoint)))
+                controller.enqueue(new TextEncoder().encode(fullLine.slice(splitPoint)))
+                controller.close()
+            }
+        })
+
+        await chatStore._processOpeyStream(stream)
+
+        expect(chatStore.currentAssistantMessage.content).toBe('hello world')
+    })
+
+    it('reassembles a multi-byte UTF-8 character split across two chunks', async () => {
+        // "café" - the é (U+00E9) encodes to 2 bytes in UTF-8. Split the encoded
+        // bytes mid-character; decoding each chunk independently (without
+        // {stream: true}) would corrupt it into replacement characters.
+        const fullLine = `data: {"type":"token","content":"café"}\n`
+        const encoded = new TextEncoder().encode(fullLine)
+        const splitPoint = fullLine.indexOf('é') === -1
+            ? encoded.length - 2
+            : new TextEncoder().encode(fullLine.slice(0, fullLine.indexOf('é'))).length + 1
+
+        const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(encoded.slice(0, splitPoint))
+                controller.enqueue(encoded.slice(splitPoint))
+                controller.close()
+            }
+        })
+
+        await chatStore._processOpeyStream(stream)
+
+        expect(chatStore.currentAssistantMessage.content).toBe('café')
+    })
+})
+
 describe('getToolCallById', () => {
     let chatStore: ReturnType<typeof useChat>
 

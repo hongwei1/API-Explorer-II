@@ -49,7 +49,7 @@ function isAuthenticated(session: any): boolean {
  * through unchanged instead of wrapping it in another {code, message} envelope,
  * which would give clients a nested code/message inside message.
  */
-function sendOBPError(res: Response, error: any) {
+export function sendOBPError(res: Response, error: any) {
   const status = error.status || 500
   try {
     const body = JSON.parse(error.message)
