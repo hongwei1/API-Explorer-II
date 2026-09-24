@@ -55,11 +55,23 @@ describe('documentation refresh throttling', () => {
       expect(isDocumentationRefreshDue(future, now)).toBe(true)
     })
 
-    it('does not stamp an incomplete entry, so it refreshes on the next load', () => {
+    it('retries an incomplete entry after a few minutes, not after the full minimum age', () => {
       const now = Date.now()
-      const partial = documentationCacheResponse({ docs: [] }, now, false)
-      expect(partial.headers.get('x-obp-cache-written-at')).toBeNull()
-      expect(isDocumentationRefreshDue(partial, now)).toBe(true)
+      const minute = 60 * 1000
+      const partial = documentationCacheResponse({ docs: [] }, now - 2 * minute, false)
+      expect(partial.headers.get('x-obp-cache-complete')).toBe('false')
+      // Still inside the retry window: throttled, so a source that keeps failing is not re-fetched on every load.
+      expect(isDocumentationRefreshDue(partial, now)).toBe(false)
+      const older = documentationCacheResponse({ docs: [] }, now - 6 * minute, false)
+      expect(isDocumentationRefreshDue(older, now)).toBe(true)
+      // A complete entry of the same age is still inside the full minimum age.
+      expect(isDocumentationRefreshDue(documentationCacheResponse({ docs: [] }, now - 6 * minute), now)).toBe(false)
+    })
+
+    it('never retries a partial entry later than the configured minimum age', () => {
+      vi.stubEnv('VITE_DOCS_REFRESH_MIN_AGE_MS', '1000')
+      const now = Date.now()
+      expect(isDocumentationRefreshDue(documentationCacheResponse({ docs: [] }, now - 2000, false), now)).toBe(true)
     })
 
     it('uses the default minimum age when the environment variable is empty', () => {

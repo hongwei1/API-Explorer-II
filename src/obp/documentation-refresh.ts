@@ -1,5 +1,10 @@
 const DEFAULT_REFRESH_MIN_AGE_MS = 60 * 60 * 1000
 const WRITTEN_AT_HEADER = 'x-obp-cache-written-at'
+const COMPLETE_HEADER = 'x-obp-cache-complete'
+// A partial load (some connector or version failed) is retried sooner than a complete one, but is
+// still throttled: a version that is permanently unavailable must not cause a full re-fetch on
+// every page load.
+const PARTIAL_RETRY_MS = 5 * 60 * 1000
 
 function refreshMinAgeMs(): number {
   const raw = import.meta.env.VITE_DOCS_REFRESH_MIN_AGE_MS
@@ -22,21 +27,27 @@ export function isDocumentationRefreshDue(
   // An unreadable stamp, or one in the future (the clock was set back), must not keep the entry
   // from ever refreshing.
   if (!Number.isFinite(writtenAt) || writtenAt > now) return true
-  return now - writtenAt >= refreshMinAgeMs()
+  const complete = cachedResponse.headers.get(COMPLETE_HEADER) !== 'false'
+  const minAge = refreshMinAgeMs()
+  return now - writtenAt >= (complete ? minAge : Math.min(minAge, PARTIAL_RETRY_MS))
 }
 
 /**
- * Wrap a value for the documentation cache. Only a complete load is stamped. An entry written
- * from a partial load carries no stamp, so the next page load refreshes it instead of keeping the
- * gaps for the whole minimum age.
+ * Wrap a value for the documentation cache. Every entry is stamped. An entry written from a
+ * partial load is also marked incomplete, so it is retried after a few minutes rather than after
+ * the full minimum age, and a source that keeps failing does not turn every page load into a
+ * full refresh.
  */
 export function documentationCacheResponse(
   value: unknown,
   now: number = Date.now(),
   complete: boolean = true
 ): Response {
-  const headers: Record<string, string> = { 'content-type': 'application/json' }
-  if (complete) headers[WRITTEN_AT_HEADER] = String(now)
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    [WRITTEN_AT_HEADER]: String(now)
+  }
+  if (!complete) headers[COMPLETE_HEADER] = 'false'
   return new Response(JSON.stringify(value), { headers })
 }
 
@@ -55,8 +66,8 @@ export function scheduleDocumentationRefreshIfDue(
 
 /**
  * Store a loaded documentation set. Nothing is written when nothing loaded, so a failed refresh
- * cannot replace a good cache entry with an empty one. A partial load is written without a
- * timestamp so the next page load refreshes it.
+ * cannot replace a good cache entry with an empty one. A partial load is written marked
+ * incomplete, so it is retried sooner.
  */
 export async function putDocumentationCache(
   cacheStorage: any,

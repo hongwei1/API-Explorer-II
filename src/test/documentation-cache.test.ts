@@ -48,7 +48,7 @@ describe('message docs cache writes', () => {
     expect(response.headers.get(STAMP)).not.toBeNull()
   })
 
-  it('writes a partial load without a stamp so it refreshes on the next page load', async () => {
+  it('writes a partial load marked incomplete so it is retried sooner', async () => {
     mockConnectors(['a_v1', 'b_v1'], (c) => (c === 'a_v1' ? messageDocs() : { code: 500, message: 'boom' }))
     const storage = fakeStorage()
 
@@ -56,7 +56,7 @@ describe('message docs cache writes', () => {
 
     expect(Object.keys(loaded)).toEqual(['a_v1'])
     expect(storage.put).toHaveBeenCalledTimes(1)
-    expect(storage.put.mock.calls[0][1].headers.get(STAMP)).toBeNull()
+    expect(storage.put.mock.calls[0][1].headers.get('x-obp-cache-complete')).toBe('false')
   })
 
   it('does not overwrite the existing entry when every connector fails', async () => {
@@ -92,13 +92,24 @@ describe('message docs cache reads', () => {
     expect(worker.postMessage).not.toHaveBeenCalled()
   })
 
-  it('posts exactly one refresh for a legacy entry and for an incomplete one', async () => {
+  it('posts exactly one refresh for a legacy entry', async () => {
     const worker = { postMessage: vi.fn() }
 
     await cache({}, new Response(JSON.stringify({ a_v1: {} })), worker)
-    await cache({}, documentationCacheResponse({ a_v1: {} }, Date.now(), false), worker)
 
-    expect(worker.postMessage).toHaveBeenCalledTimes(2)
+    expect(worker.postMessage).toHaveBeenCalledTimes(1)
     expect(worker.postMessage).toHaveBeenCalledWith('update-message-docs')
+  })
+
+  it('does not refresh a just-written partial entry on every load, but does once the retry age passes', async () => {
+    const worker = { postMessage: vi.fn() }
+    const justNow = documentationCacheResponse({ a_v1: {} }, Date.now(), false)
+    const tenMinutesAgo = documentationCacheResponse({ a_v1: {} }, Date.now() - 10 * 60 * 1000, false)
+
+    await cache({}, justNow, worker)
+    expect(worker.postMessage).not.toHaveBeenCalled()
+
+    await cache({}, tenMinutesAgo, worker)
+    expect(worker.postMessage).toHaveBeenCalledTimes(1)
   })
 })
