@@ -40,8 +40,12 @@ export async function serverStatus(): Promise<any> {
 }
 
 export async function isServerUp(): Promise<boolean> {
-  //Set the status to offline/down only if all the resource data is not availalbe.
-  return !Object.values(await serverStatus()).every((isTrue) => !isTrue)
+  try {
+    const response = await superagent.get('/api/health')
+    return response.body?.status === 'ok'
+  } catch {
+    return false
+  }
 }
 
 export async function get(path: string): Promise<any> {

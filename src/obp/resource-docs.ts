@@ -28,6 +28,10 @@
 import { get, isServerUp, OBP_API_DEFAULT_RESOURCE_DOC_VERSION } from '../obp'
 import { getOBPAPIVersions } from '../obp/api-version'
 import { runWithConcurrency, updateLoadingInfoMessage } from './common-functions'
+import {
+  documentationCacheResponse,
+  scheduleDocumentationRefreshIfDue
+} from './documentation-refresh'
 import { RESOURCE_DOCS_API_VERSION } from '../shared-constants'
 
 const RESOURCE_DOCS_CONCURRENCY = 5
@@ -180,7 +184,7 @@ export async function cacheDoc(cacheStorageOfResourceDocs: any): Promise<any> {
 
     await runWithConcurrency(activeVersions, RESOURCE_DOCS_CONCURRENCY, cacheOneVersion)
 
-    await cacheStorageOfResourceDocs.put('/', new Response(JSON.stringify(resourceDocsMapping)))
+    await cacheStorageOfResourceDocs.put('/', documentationCacheResponse(resourceDocsMapping))
     return resourceDocsMapping
   } catch (error) {
     console.error('Failed to cache resource docs:', error)
@@ -196,9 +200,8 @@ async function getCacheDoc(cacheStorageOfResourceDocs: any): Promise<any> {
 export async function cache(cachedStorage: any, cachedResponse: any, worker: any): Promise<any> {
   try {
     const resourceDocs = await cachedResponse.json()
-    // Only a cache hit should schedule a background refresh; posting before the
-    // read would make a cold cache fetch everything twice via the worker echo.
-    worker.postMessage('update-resource-docs')
+    // Legacy cache entries have no timestamp and refresh once after this successful read.
+    scheduleDocumentationRefreshIfDue(cachedResponse, worker, 'update-resource-docs')
     console.log(
       '[CACHE] Loaded cached resource docs, available versions:',
       Object.keys(resourceDocs)
