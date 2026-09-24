@@ -28,10 +28,7 @@
 import { OBP_API_VERSION, get, isServerUp } from '../obp'
 import { V6_0_0 } from '../shared-constants'
 import { runWithConcurrency, updateLoadingInfoMessage } from './common-functions'
-import {
-  documentationCacheResponse,
-  scheduleDocumentationRefreshIfDue
-} from './documentation-refresh'
+import { putDocumentationCache, scheduleDocumentationRefreshIfDue } from './documentation-refresh'
 
 const MESSAGE_DOCS_CONCURRENCY = 4
 
@@ -177,6 +174,7 @@ export function getGroupedMessageDocsJsonSchema(docs: any): any {
 export async function cacheDoc(cacheStorageOfMessageDocs: any): Promise<any> {
   const connectors = await getConnectors()
   const messageDocs: any = {}
+  let failed = 0
   await runWithConcurrency(connectors, MESSAGE_DOCS_CONCURRENCY, async (connector: string) => {
     const logMessage = `Caching message docs { connector: ${connector} }`
     console.log(logMessage)
@@ -185,12 +183,15 @@ export async function cacheDoc(cacheStorageOfMessageDocs: any): Promise<any> {
       const docs = await getOBPMessageDocs(connector)
       if (!Object.keys(docs).includes('code')) {
         messageDocs[connector] = getGroupedMessageDocs(docs)
+      } else {
+        failed++
       }
     } catch (error: any) {
+      failed++
       console.warn(`[CACHE] WARNING: Skipping message docs for connector ${connector}:`, error.message || error)
     }
   })
-  await cacheStorageOfMessageDocs.put('/', documentationCacheResponse(messageDocs))
+  await putDocumentationCache(cacheStorageOfMessageDocs, messageDocs, failed === 0, 'message docs')
   return messageDocs
 }
 
@@ -201,6 +202,7 @@ async function getCacheDoc(cacheStorageOfMessageDocs: any): Promise<any> {
 export async function cacheDocJsonSchema(cacheStorageOfMessageDocsJsonSchema: any): Promise<any> {
   const connectors = await getConnectors()
   const messageDocsJsonSchema: any = {}
+  let failed = 0
   await runWithConcurrency(connectors, MESSAGE_DOCS_CONCURRENCY, async (connector: string) => {
     const logMessage = `Caching message docs JSON schema { connector: ${connector} }`
     console.log(logMessage)
@@ -209,12 +211,20 @@ export async function cacheDocJsonSchema(cacheStorageOfMessageDocsJsonSchema: an
       const docs = await getOBPMessageDocsJsonSchema(connector)
       if (!Object.keys(docs).includes('code')) {
         messageDocsJsonSchema[connector] = getGroupedMessageDocsJsonSchema(docs)
+      } else {
+        failed++
       }
     } catch (error: any) {
+      failed++
       console.warn(`[CACHE] WARNING: Skipping message docs JSON schema for connector ${connector}:`, error.message || error)
     }
   })
-  await cacheStorageOfMessageDocsJsonSchema.put('/', documentationCacheResponse(messageDocsJsonSchema))
+  await putDocumentationCache(
+    cacheStorageOfMessageDocsJsonSchema,
+    messageDocsJsonSchema,
+    failed === 0,
+    'message docs JSON schemas'
+  )
   return messageDocsJsonSchema
 }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   documentationCacheResponse,
@@ -32,5 +32,58 @@ describe('documentation refresh throttling', () => {
     expect(scheduleDocumentationRefreshIfDue(legacy, worker, 'refresh')).toBe(true)
     expect(worker.postMessage).toHaveBeenCalledTimes(1)
     expect(worker.postMessage).toHaveBeenCalledWith('refresh')
+  })
+
+  describe('edge cases', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('treats a missing timestamp header as due', () => {
+      const legacy = new Response('{}')
+      expect(isDocumentationRefreshDue(legacy, Date.now())).toBe(true)
+    })
+
+    it('treats an unreadable timestamp as due', () => {
+      const broken = new Response('{}', { headers: { 'x-obp-cache-written-at': 'not-a-number' } })
+      expect(isDocumentationRefreshDue(broken, Date.now())).toBe(true)
+    })
+
+    it('treats a timestamp in the future (clock set back) as due', () => {
+      const now = Date.now()
+      const future = documentationCacheResponse({ docs: [] }, now + 5 * 60 * 1000)
+      expect(isDocumentationRefreshDue(future, now)).toBe(true)
+    })
+
+    it('does not stamp an incomplete entry, so it refreshes on the next load', () => {
+      const now = Date.now()
+      const partial = documentationCacheResponse({ docs: [] }, now, false)
+      expect(partial.headers.get('x-obp-cache-written-at')).toBeNull()
+      expect(isDocumentationRefreshDue(partial, now)).toBe(true)
+    })
+
+    it('uses the default minimum age when the environment variable is empty', () => {
+      vi.stubEnv('VITE_DOCS_REFRESH_MIN_AGE_MS', '')
+      const now = Date.now()
+      const recent = documentationCacheResponse({ docs: [] }, now - 1000)
+      expect(isDocumentationRefreshDue(recent, now)).toBe(false)
+    })
+
+    it('honours a configured minimum age', () => {
+      vi.stubEnv('VITE_DOCS_REFRESH_MIN_AGE_MS', '1000')
+      const now = Date.now()
+      const entry = documentationCacheResponse({ docs: [] }, now - 2000)
+      expect(isDocumentationRefreshDue(entry, now)).toBe(true)
+      expect(isDocumentationRefreshDue(documentationCacheResponse({ docs: [] }, now - 500), now)).toBe(false)
+    })
+
+    it('falls back to the default for a negative or non-numeric value', () => {
+      const now = Date.now()
+      const recent = documentationCacheResponse({ docs: [] }, now - 1000)
+      vi.stubEnv('VITE_DOCS_REFRESH_MIN_AGE_MS', '-5')
+      expect(isDocumentationRefreshDue(recent, now)).toBe(false)
+      vi.stubEnv('VITE_DOCS_REFRESH_MIN_AGE_MS', 'soon')
+      expect(isDocumentationRefreshDue(recent, now)).toBe(false)
+    })
   })
 })

@@ -28,10 +28,7 @@
 import { get, isServerUp, OBP_API_DEFAULT_RESOURCE_DOC_VERSION } from '../obp'
 import { getOBPAPIVersions } from '../obp/api-version'
 import { runWithConcurrency, updateLoadingInfoMessage } from './common-functions'
-import {
-  documentationCacheResponse,
-  scheduleDocumentationRefreshIfDue
-} from './documentation-refresh'
+import { putDocumentationCache, scheduleDocumentationRefreshIfDue } from './documentation-refresh'
 import { RESOURCE_DOCS_API_VERSION } from '../shared-constants'
 
 const RESOURCE_DOCS_CONCURRENCY = 5
@@ -135,6 +132,7 @@ export async function cacheDoc(cacheStorageOfResourceDocs: any): Promise<any> {
     const resourceDocsMapping: any = {}
     const total = activeVersions.length
     let completed = 0
+    let failed = 0
 
     const cacheOneVersion = async ({ api_standard, api_short_version }: any): Promise<void> => {
       if (api_standard) {
@@ -151,9 +149,11 @@ export async function cacheDoc(cacheStorageOfResourceDocs: any): Promise<any> {
             resourceDocsMapping[version] = resourceDocs
             console.log(`[CACHE] Successfully cached ${kind} for: ${version}`)
           } else {
+            failed++
             console.warn(`[CACHE] WARNING: Response for ${version} missing 'resource_docs' field`)
           }
         } catch (error: any) {
+          failed++
           console.warn(
             `[CACHE] WARNING: Skipping ${isDynamicEntity ? 'dynamic endpoint' : 'API version'} ${api_standard}${api_short_version}:`
           )
@@ -184,7 +184,7 @@ export async function cacheDoc(cacheStorageOfResourceDocs: any): Promise<any> {
 
     await runWithConcurrency(activeVersions, RESOURCE_DOCS_CONCURRENCY, cacheOneVersion)
 
-    await cacheStorageOfResourceDocs.put('/', documentationCacheResponse(resourceDocsMapping))
+    await putDocumentationCache(cacheStorageOfResourceDocs, resourceDocsMapping, failed === 0, 'resource docs')
     return resourceDocsMapping
   } catch (error) {
     console.error('Failed to cache resource docs:', error)
