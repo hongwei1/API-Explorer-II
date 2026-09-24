@@ -32,6 +32,7 @@ import OBPClientService from '../services/OBPClientService.js'
 import { OAuth2ProviderManager } from '../services/OAuth2ProviderManager.js'
 import { OAuth2ProviderFactory } from '../services/OAuth2ProviderFactory.js'
 import { checkOIDCProviders } from '../services/OIDCServiceHealth.js'
+import { isObpReachable } from '../services/ObpReachability.js'
 import { commitId } from '../app.js'
 import {
   RESOURCE_DOCS_API_VERSION,
@@ -158,6 +159,17 @@ router.get('/health', (req: Request, res: Response) => {
   res.status(200).json({
     status: 'ok'
   })
+})
+
+/**
+ * GET /ready
+ * Whether the OBP API this Explorer talks to is reachable. One request to the API root, so it is
+ * cheap enough for the front end to call at start-up and on a cold documentation cache.
+ * Use /health for "is this process up" and /status for the full, expensive report.
+ */
+router.get('/ready', async (req: Request, res: Response) => {
+  const reachable = await isObpReachable(obpClientService, obpClientService.getOBPVersion())
+  res.status(reachable ? 200 : 503).json({ status: reachable ? 'ok' : 'unavailable' })
 })
 
 /**
